@@ -3,6 +3,7 @@
 
 import xlwt
 import xlrd
+from xlutils.copy import copy
 
 def xl_wt():
     work_book = xlwt.Workbook(encoding='ascii')
@@ -20,7 +21,17 @@ def xl_rd():
     print(work_sheet.cell(0, 0).value)
     print(work_sheet.cell(1, 0).value)
 
+
+def xl_append():
+    rd_book = xlrd.open_workbook("xl-exercise.xls")
+    wt_book = copy(rd_book)
+    wt_sheet = wt_book.get_sheet(0)
+    wt_sheet.write(0, 1, "new world")
+    wt_book.save("xl-exercise.xls")
+
+
 if __name__ == "__main__":
     xl_wt()
     xl_rd()
+    xl_append()
 
