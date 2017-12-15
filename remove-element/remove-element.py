@@ -9,7 +9,7 @@ class Solution:
     """
     def removeElement(self, A, elem):
         if A is None: return 0,[]
-        if len(A) == 0: return 0,[]
+        if not A: return 0,[]
         while elem in A: A.remove(elem)
         # result = [e for e in A if e != elem]
         return len(A), A

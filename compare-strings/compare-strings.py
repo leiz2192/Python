@@ -71,7 +71,8 @@ class Solution:
     """
     def longestCommonPrefix(self, strs):
         if strs is None: return ""
-        if len(strs) == 0: return ""
+        if not strs: return ""
+        # if len(strs) == 0: return ""
         strs.sort(key=lambda x:len(x))
         longest_prefix = strs[0]
         max_len_prefix = len(longest_prefix)
@@ -98,5 +99,6 @@ if __name__ == "__main__":
     B = "CBCE"
     print(sol.longestCommonSubstring(A, B))
 
+    print(sol.longestCommonPrefix([]))
     strs = ["ABCDEFG", "ABCEFG", "ABCEF"]
     print(sol.longestCommonPrefix(strs))

@@ -8,7 +8,7 @@ class Solution:
     """
     def subarraySum(self, nums):
         if nums is None: return []
-        if nums is False: return []
+        if not nums: return []
         if nums[0] == 0: return [0, 0]
         sum_hash = {}
         sum = 0
@@ -23,5 +23,6 @@ if __name__ == '__main__':
     nums = [-2, 1, 2, -3, 4]
     sol = Solution()
     print(sol.subarraySum(nums))
+    print(sol.subarraySum([]))
     print(sol.subarraySum([0, -3]))
 
