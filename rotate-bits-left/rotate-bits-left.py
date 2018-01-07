@@ -10,11 +10,9 @@ class Solution:
 
     def leftRotate(self, n, d):
         bin_str = bin(n)[2:]
-        print(bin_str)
         supplement_num = 32 - len(bin_str)
         supplement_str = ''.join(str(0) for i in range(supplement_num))
         bin_str = supplement_str + bin_str
-        print(bin_str)
         bin_str = bin_str[d:] + bin_str[:d]
         return int(bin_str, 2)
 
