@@ -1,7 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
+import json
+import os
 import sys
+
 from subprocess import Popen, PIPE
 
 from PyQt5 import QtWidgets
@@ -11,15 +14,38 @@ from PyQt5.QtWidgets import (
     QPushButton, QApplication, QMessageBox,
     QDesktopWidget, QLabel, QLineEdit, QGridLayout,
     QSizePolicy, QSystemTrayIcon, QAction, QMenu,
-    QHBoxLayout, QVBoxLayout, QTreeView, QSplitter, QDirModel)
+    QHBoxLayout, QVBoxLayout, QListWidget)
 
 
 g_icon_name="putty_session_m.png"
+g_session_file_name="all_sessions.json"
+
+
+class Sessions(object):
+    def __init__(self):
+        self.__all_sessions = {}
+        if not os.path.exists(g_session_file_name):
+            return
+
+        with open(g_session_file_name, 'r') as session_fp:
+            self.__all_sessions = json.load(session_fp)
+        print(self.__all_sessions)
+
+    def get_session_names(self):
+        return [session_name for session_name in self.__all_sessions]
+
+    def get_session_attr(self, session_name):
+        if session_name in self.__all_sessions:
+            return self.__all_sessions[session_name]
+        else:
+            return []
 
 
 class PuttySessionM(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+
+        self.sessions = Sessions()
         self.init_ui()
 
     def init_ui(self):
@@ -36,7 +62,6 @@ class PuttySessionM(QtWidgets.QWidget):
         )
 
         self.close_confirm = False
-        self.splitter.show()
 
     def init_tray(self):
         self.tray = QSystemTrayIcon()
@@ -57,6 +82,7 @@ class PuttySessionM(QtWidgets.QWidget):
 
     def init_slot(self):
         self.open_btn.clicked.connect(self.putty_open)
+        self.session_list.itemClicked.connect(self.session_show)
 
     def init_layout(self):
         self.session_attr_grid = QGridLayout()
@@ -77,7 +103,7 @@ class PuttySessionM(QtWidgets.QWidget):
         self.button_grid.addWidget(self.save_open_btn)
 
         self.session_grid = QHBoxLayout()
-        self.session_grid.addWidget(self.splitter)
+        self.session_grid.addWidget(self.session_list)
         self.session_grid.addLayout(self.session_attr_grid)
 
         self.gerneral_grid = QVBoxLayout()
@@ -106,15 +132,25 @@ class PuttySessionM(QtWidgets.QWidget):
         self.save_open_btn = QPushButton("Save and Open")
         self.open_btn = QPushButton("Open")
 
-        self.splitter = QSplitter()
-        self.splitter.setOrientation(Qt.Vertical)
+        self.session_list = QListWidget()
+        self.session_list.addItems(self.sessions.get_session_names())
 
-        self.session_tree = QTreeView(self.splitter)
-        self.session_model = QDirModel()
-        self.session_tree.setModel(self.session_model)
-        self.session_tree.setRootIndex(
-            self.session_model.index("C:\\Users\lazy\Documents")
-        )
+    def session_show(self):
+        self.ip_edit.clear()
+        self.port_edit.clear()
+        self.user_edit.clear()
+        self.pwd_edit.clear()
+        
+        session_name = self.session_list.currentItem().text()
+        session_attr = self.sessions.get_session_attr(session_name)
+        if "host" in session_attr:
+            self.ip_edit.setText(session_attr["host"])
+        if "port" in session_attr:
+            self.port_edit.setText(session_attr["port"])
+        if "username" in session_attr:
+            self.user_edit.setText(session_attr["username"])
+        if "passwd" in session_attr:
+            self.pwd_edit.setText(session_attr["passwd"])
 
     def tray_click(self, click_way):
         if click_way == QSystemTrayIcon.DoubleClick:

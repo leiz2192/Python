@@ -1,0 +1,13 @@
+{
+    "centos": {
+        "host": "127.0.0.1",
+        "port": "2222",
+        "username": "vagrant"
+    },
+    "vagrant@198.168.1.107": {
+        "host": "198.168.1.107",
+        "port": "22",
+        "username": "vagrant",
+        "passwd": "vagrant"
+    }
+}
