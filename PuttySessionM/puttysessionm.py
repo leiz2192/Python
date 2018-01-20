@@ -9,9 +9,9 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import (
     QPushButton, QApplication, QMessageBox,
-    QDesktopWidget, QLabel, QLineEdit,
-    QGridLayout, QSizePolicy, QSystemTrayIcon,
-    QAction, QMenu)
+    QDesktopWidget, QLabel, QLineEdit, QGridLayout,
+    QSizePolicy, QSystemTrayIcon, QAction, QMenu,
+    QHBoxLayout, QVBoxLayout, QTreeView, QSplitter, QDirModel)
 
 
 g_icon_name="putty_session_m.png"
@@ -31,17 +31,24 @@ class PuttySessionM(QtWidgets.QWidget):
         self.setWindowTitle("PuttySessionPanel")
         self.setWindowIcon(QIcon(g_icon_name))
 
-        self.setWindowFlags(Qt.WindowMinimizeButtonHint|Qt.WindowCloseButtonHint)
+        self.setWindowFlags(
+            Qt.WindowMinimizeButtonHint|Qt.WindowCloseButtonHint
+        )
 
         self.close_confirm = False
+        self.splitter.show()
 
     def init_tray(self):
         self.tray = QSystemTrayIcon()
         self.tray.setIcon(QIcon(g_icon_name))
         self.tray.activated.connect(self.tray_click)
 
-        self.tray_restore_action = QAction("Restore", self, triggered=self.showNormal)
-        self.tray_quit_action = QAction("Quit", self, triggered=self.close)
+        self.tray_restore_action = QAction(
+            "Restore", self, triggered=self.showNormal
+        )
+        self.tray_quit_action = QAction(
+            "Quit", self, triggered=self.close
+        )
         self.tray_menu = QMenu(QApplication.desktop())
         self.tray_menu.addAction(self.tray_restore_action)
         self.tray_menu.addAction(self.tray_quit_action)
@@ -63,10 +70,20 @@ class PuttySessionM(QtWidgets.QWidget):
         self.session_attr_grid.addWidget(self.pwd_label, 3, 0)
         self.session_attr_grid.addWidget(self.pwd_edit, 3, 1)
         self.session_attr_grid.addWidget(self.save_label, 4, 0)
-        self.session_attr_grid.addWidget(self.save_edit, 4, 1)cd
-        self.session_attr_grid.addWidget(self.open_btn, 5, 0)
-        self.session_attr_grid.addWidget(self.save_open_btn, 5, 1)
-        self.setLayout(self.session_attr_grid)
+        self.session_attr_grid.addWidget(self.save_edit, 4, 1)
+
+        self.button_grid = QHBoxLayout()
+        self.button_grid.addWidget(self.open_btn)
+        self.button_grid.addWidget(self.save_open_btn)
+
+        self.session_grid = QHBoxLayout()
+        self.session_grid.addWidget(self.splitter)
+        self.session_grid.addLayout(self.session_attr_grid)
+
+        self.gerneral_grid = QVBoxLayout()
+        self.gerneral_grid.addLayout(self.session_grid)
+        self.gerneral_grid.addLayout(self.button_grid)
+        self.setLayout(self.gerneral_grid)
 
     def init_element(self):
         self.ip_label = QLabel("Host IP")
@@ -87,9 +104,17 @@ class PuttySessionM(QtWidgets.QWidget):
         self.save_edit = QLineEdit()
 
         self.save_open_btn = QPushButton("Save and Open")
-        # self.save_open_btn.adjustSize()
         self.open_btn = QPushButton("Open")
-        # self.open_btn.adjustSize()
+
+        self.splitter = QSplitter()
+        self.splitter.setOrientation(Qt.Vertical)
+
+        self.session_tree = QTreeView(self.splitter)
+        self.session_model = QDirModel()
+        self.session_tree.setModel(self.session_model)
+        self.session_tree.setRootIndex(
+            self.session_model.index("C:\\Users\lazy\Documents")
+        )
 
     def tray_click(self, click_way):
         if click_way == QSystemTrayIcon.DoubleClick:
