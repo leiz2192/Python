@@ -56,7 +56,6 @@ class Sessions(object):
             for attr in self.__all_sessions[session_name]:
                 if attr in session_attr:
                     self.__all_sessions[session_name][attr] = session_attr[attr]
-        print(self.__all_sessions)
         with open(g_session_file_name, 'w') as session_fp:
             json.dump(
                 self.__all_sessions, session_fp, indent=4, ensure_ascii=False
@@ -187,6 +186,7 @@ class PuttySessionM(QtWidgets.QWidget):
     def tray_session_open(self, session_name):
         print("tray session click ", session_name)
         session_attr = self.sessions.get_session_attr(session_name)
+        print("tray_session_open,", session_attr)
         host = session_attr.get("host", "")
         port = session_attr.get("port", "")
         user = session_attr.get("username", "")
@@ -239,6 +239,11 @@ class PuttySessionM(QtWidgets.QWidget):
         }
         if self.sessions.is_new_session_name(session_name):
             self.session_list.addItem(session_name)
+            session_name_action = QAction(session_name, self)
+            session_name_action.triggered.connect(
+                functools.partial(self.tray_session_open, session_name)
+            )
+            self.tray_sessions.addAction(session_name_action)
         self.sessions.save_session(session_name, session_attr)
 
     def putty_open(self):
@@ -257,10 +262,10 @@ class PuttySessionM(QtWidgets.QWidget):
         user_name = self.user_edit.text()
         passwd = self.pwd_edit.text()
 
-        self.shell_open_putty(host_ip, host_port, passwd, user_name)
+        self.shell_open_putty(host_ip, host_port, user_name, passwd)
         return True
 
-    def shell_open_putty(self, host_ip, host_port, passwd, user_name):
+    def shell_open_putty(self, host_ip, host_port, user_name, passwd):
         if not host_ip or not host_port:
             print("host_ip or host_port empty")
             return
