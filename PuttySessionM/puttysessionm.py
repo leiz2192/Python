@@ -5,19 +5,24 @@ import json
 import os
 import sys
 
-from subprocess import Popen, PIPE
+from subprocess import Popen
 
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import (
     QPushButton, QApplication, QMessageBox,
-    QDesktopWidget, QLabel, QLineEdit, QGridLayout,
-    QSizePolicy, QSystemTrayIcon, QAction, QMenu,
-    QHBoxLayout, QVBoxLayout, QListWidget)
+    QLabel, QLineEdit, QGridLayout,
+    QSystemTrayIcon, QAction, QMenu,
+    QHBoxLayout, QVBoxLayout, QListWidget, QToolBar)
 
+g_icon_name = {
+    "software": "puttysessionm.png",
+    "session_add": "add.png",
+    "session_remove": "remove.png",
+    "session_search": "search.png"
+}
 
-g_icon_name="putty_session_m.png"
 g_session_file_name="all_sessions.json"
 
 
@@ -40,6 +45,22 @@ class Sessions(object):
         else:
             return []
 
+    def is_new_session_name(self, session_name):
+        return session_name not in self.__all_sessions
+
+    def save_session(self, session_name, session_attr):
+        if session_name not in self.__all_sessions:
+            self.__all_sessions[session_name] = session_attr
+        else:
+            for attr in self.__all_sessions[session_name]:
+                if attr in session_attr:
+                    self.__all_sessions[session_name][attr] = session_attr[attr]
+        print(self.__all_sessions)
+        with open(g_session_file_name, 'w') as session_fp:
+            json.dump(
+                self.__all_sessions, session_fp, indent=4, ensure_ascii=False
+            )
+
 
 class PuttySessionM(QtWidgets.QWidget):
     def __init__(self):
@@ -55,7 +76,7 @@ class PuttySessionM(QtWidgets.QWidget):
         self.init_tray()
 
         self.setWindowTitle("PuttySessionPanel")
-        self.setWindowIcon(QIcon(g_icon_name))
+        self.setWindowIcon(QIcon(g_icon_name["software"]))
 
         self.setWindowFlags(
             Qt.WindowMinimizeButtonHint|Qt.WindowCloseButtonHint
@@ -65,7 +86,7 @@ class PuttySessionM(QtWidgets.QWidget):
 
     def init_tray(self):
         self.tray = QSystemTrayIcon()
-        self.tray.setIcon(QIcon(g_icon_name))
+        self.tray.setIcon(QIcon(g_icon_name["software"]))
         self.tray.activated.connect(self.tray_click)
 
         self.tray_restore_action = QAction(
@@ -82,7 +103,9 @@ class PuttySessionM(QtWidgets.QWidget):
 
     def init_slot(self):
         self.open_btn.clicked.connect(self.putty_open)
+        self.save_open_btn.clicked.connect(self.putty_save_and_open)
         self.session_list.itemClicked.connect(self.session_show)
+        self.session_list.itemDoubleClicked.connect(self.session_show_and_open)
 
     def init_layout(self):
         self.session_attr_grid = QGridLayout()
@@ -102,8 +125,12 @@ class PuttySessionM(QtWidgets.QWidget):
         self.button_grid.addWidget(self.open_btn)
         self.button_grid.addWidget(self.save_open_btn)
 
+        self.session_list_grid = QVBoxLayout()
+        self.session_list_grid.addWidget(self.session_list)
+        self.session_list_grid.addWidget(self.session_toolbar)
+
         self.session_grid = QHBoxLayout()
-        self.session_grid.addWidget(self.session_list)
+        self.session_grid.addLayout(self.session_list_grid)
         self.session_grid.addLayout(self.session_attr_grid)
 
         self.gerneral_grid = QVBoxLayout()
@@ -132,17 +159,40 @@ class PuttySessionM(QtWidgets.QWidget):
         self.save_open_btn = QPushButton("Save and Open")
         self.open_btn = QPushButton("Open")
 
+        self.session_add = QAction(
+            QIcon(g_icon_name["session_add"]), "Add", self
+        )
+        self.session_remove = QAction(
+            QIcon(g_icon_name["session_remove"]), "Remove", self
+        )
+        self.session_search = QAction(
+            QIcon(g_icon_name["session_search"]), "Search", self
+        )
+        self.session_search_edit = QLineEdit()
+        self.session_toolbar = QToolBar("SesionTool")
+        self.session_toolbar.addAction(self.session_add)
+        self.session_toolbar.addAction(self.session_remove)
+        self.session_toolbar.addAction(self.session_search)
+        self.session_toolbar.addWidget(self.session_search_edit)
+
         self.session_list = QListWidget()
-        self.session_list.addItems(self.sessions.get_session_names())
+        session_names = self.sessions.get_session_names()
+        self.session_list.addItems(session_names)
+
+    def session_show_and_open(self):
+        self.session_show()
+        self.putty_open()
 
     def session_show(self):
         self.ip_edit.clear()
         self.port_edit.clear()
         self.user_edit.clear()
         self.pwd_edit.clear()
-        
+        self.save_edit.clear()
+
         session_name = self.session_list.currentItem().text()
         session_attr = self.sessions.get_session_attr(session_name)
+        self.save_edit.setText(session_name)
         if "host" in session_attr:
             self.ip_edit.setText(session_attr["host"])
         if "port" in session_attr:
@@ -157,25 +207,45 @@ class PuttySessionM(QtWidgets.QWidget):
             self.showNormal()
             self.setWindowState(Qt.WindowActive)
 
+    def putty_save_and_open(self):
+        if not self.putty_open():
+            return
+        host = self.ip_edit.text()
+        port = self.port_edit.text()
+        user = self.user_edit.text()
+        pawd = self.pwd_edit.text()
+        session_name = self.save_edit.text()
+        if not session_name:
+            session_name = "{0}@{1}".format(user, host)
+        session_attr = {
+            "host": host,
+            "port": port,
+            "username": user,
+            "passwd": pawd
+        }
+        if self.sessions.is_new_session_name(session_name):
+            self.session_list.addItem(session_name)
+        self.sessions.save_session(session_name, session_attr)
+
     def putty_open(self):
         host_ip = self.ip_edit.text()
         if not host_ip:
             QMessageBox.information(
                 self, "Information", "Please input right Host IP"
             )
-            return
+            return False
         host_port = self.port_edit.text()
         if not host_port:
             QMessageBox.information(
                 self, "Information", "Please input right Port"
             )
-            return
+            return False
         user_name = self.user_edit.text()
         if not user_name:
             QMessageBox.information(
                 self, "Information", "Please input your username"
             )
-            return
+            return False
         open_cmd = "putty -ssh -l {user} -P {port}".format(
             user=user_name, port=host_port
         )
@@ -191,6 +261,7 @@ class PuttySessionM(QtWidgets.QWidget):
 
         print("Open putty:", open_cmd)
         Popen(open_cmd)
+        return True
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
