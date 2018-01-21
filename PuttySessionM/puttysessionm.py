@@ -61,6 +61,16 @@ class Sessions(object):
                 self.__all_sessions, session_fp, indent=4, ensure_ascii=False
             )
 
+    def remove_session(self, session_name):
+        if session_name not in self.__all_sessions:
+            return
+        self.__all_sessions.pop(session_name)
+        print(self.__all_sessions)
+        with open(g_session_file_name, 'w') as session_fp:
+            json.dump(
+                self.__all_sessions, session_fp, indent=4, ensure_ascii=False
+            )
+
 
 class PuttySessionM(QtWidgets.QWidget):
     def __init__(self):
@@ -119,6 +129,7 @@ class PuttySessionM(QtWidgets.QWidget):
         self.save_open_btn.clicked.connect(self.putty_save_and_open)
         self.session_list.itemClicked.connect(self.session_show)
         self.session_list.itemDoubleClicked.connect(self.session_show_and_open)
+        self.session_remove.triggered.connect(self.session_del)
 
     def init_layout(self):
         self.session_grid = QGridLayout()
@@ -193,6 +204,30 @@ class PuttySessionM(QtWidgets.QWidget):
         pawd = session_attr.get("passwd", "")
         self.shell_open_putty(host, port, user, pawd)
 
+    def session_del(self):
+        current_item = self.session_list.currentItem()
+        if current_item is None:
+            QMessageBox.information(
+                self, "Message", "Please select a session!"
+            )
+            return
+        session_name = current_item.text()
+        reply = QMessageBox.question(
+            self,
+            "Message",
+            "Are you sure to remove \"{0}\"?".format(session_name),
+            QMessageBox.Yes|QMessageBox.No,
+            QMessageBox.Yes
+        )
+        if reply == QMessageBox.No:
+            return
+        self.session_list.takeItem(self.session_list.currentRow())
+        for action in self.tray_sessions.actions():
+            if action.text() == session_name:
+                self.tray_sessions.removeAction(action)
+                break
+        self.sessions.remove_session(session_name)
+
     def session_show_and_open(self):
         self.session_show()
         self.putty_open()
@@ -239,6 +274,7 @@ class PuttySessionM(QtWidgets.QWidget):
         }
         if self.sessions.is_new_session_name(session_name):
             self.session_list.addItem(session_name)
+
             session_name_action = QAction(session_name, self)
             session_name_action.triggered.connect(
                 functools.partial(self.tray_session_open, session_name)
