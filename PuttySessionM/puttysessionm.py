@@ -4,6 +4,7 @@
 import json
 import os
 import sys
+import functools
 
 from subprocess import Popen
 
@@ -14,7 +15,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QApplication, QMessageBox,
     QLabel, QLineEdit, QGridLayout,
     QSystemTrayIcon, QAction, QMenu,
-    QHBoxLayout, QVBoxLayout, QListWidget, QToolBar)
+    QListWidget, QToolBar)
 
 g_icon_name = {
     "software": "puttysessionm.png",
@@ -97,9 +98,19 @@ class PuttySessionM(QtWidgets.QWidget):
         self.tray_quit = QAction(
             "Quit", self, triggered=self.close
         )
+
+        self.tray_sessions = QMenu("Sessions", self)
+        for session_name in self.session_names:
+            session_name_action = QAction(session_name, self)
+            session_name_action.triggered.connect(
+                functools.partial(self.tray_session_open, session_name)
+            )
+            self.tray_sessions.addAction(session_name_action)
+
         self.tray_menu = QMenu(QApplication.desktop())
         self.tray_menu.addAction(self.tray_restore)
         self.tray_menu.addAction(self.tray_quit)
+        self.tray_menu.addMenu(self.tray_sessions)
 
         self.tray.setContextMenu(self.tray_menu)
         self.tray.show()
@@ -145,12 +156,12 @@ class PuttySessionM(QtWidgets.QWidget):
         self.pwd_label = QLabel("Password")
         self.pwd_edit = QLineEdit()
 
-        self.save_label = QLabel("Saves as")
+        self.save_label = QLabel("Saved as")
         self.save_edit = QLineEdit()
 
-        self.save_open_btn = QPushButton("Save and Open")
+        self.save_open_btn = QPushButton("&Save and Open")
         self.save_open_btn.minimumSizeHint()
-        self.open_btn = QPushButton("Open")
+        self.open_btn = QPushButton("&Open")
         self.open_btn.minimumSizeHint()
 
         self.session_add = QAction(
@@ -170,8 +181,17 @@ class PuttySessionM(QtWidgets.QWidget):
         self.session_toolbar.addWidget(self.session_search_edit)
 
         self.session_list = QListWidget()
-        session_names = self.sessions.get_session_names()
-        self.session_list.addItems(session_names)
+        self.session_names = self.sessions.get_session_names()
+        self.session_list.addItems(self.session_names)
+
+    def tray_session_open(self, session_name):
+        print("tray session click ", session_name)
+        session_attr = self.sessions.get_session_attr(session_name)
+        host = session_attr.get("host", "")
+        port = session_attr.get("port", "")
+        user = session_attr.get("username", "")
+        pawd = session_attr.get("passwd", "")
+        self.shell_open_putty(host, port, user, pawd)
 
     def session_show_and_open(self):
         self.session_show()
@@ -235,31 +255,28 @@ class PuttySessionM(QtWidgets.QWidget):
             )
             return False
         user_name = self.user_edit.text()
-        if not user_name:
-            QMessageBox.information(
-                self, "Information", "Please input your username"
-            )
-            return False
-        open_cmd = "putty -ssh -l {user} -P {port}".format(
-            user=user_name, port=host_port
-        )
         passwd = self.pwd_edit.text()
-        if passwd:
-            open_cmd = "{cmd} -pw {pwd} {ip}".format(
-                cmd=open_cmd, pwd=passwd, ip=host_ip
-            )
-        else:
-            open_cmd = "{cmd} {ip}".format(
-                cmd=open_cmd, ip=host_ip
-            )
 
+        self.shell_open_putty(host_ip, host_port, passwd, user_name)
+        return True
+
+    def shell_open_putty(self, host_ip, host_port, passwd, user_name):
+        if not host_ip or not host_port:
+            print("host_ip or host_port empty")
+            return
+
+        open_cmd = "putty -ssh -P {port}".format(port=host_port)
+        if user_name:
+            open_cmd = "{cmd} -l {user}".format(cmd=open_cmd, user=user_name)
+        if passwd:
+            open_cmd = "{cmd} -pw {pwd}".format(cmd=open_cmd, pwd=passwd)
+        open_cmd = "{cmd} {ip}".format(cmd=open_cmd, ip=host_ip)
         print("Open putty:", open_cmd)
         Popen(open_cmd)
-        return True
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
-            self.close()
+            self.hide()
 
     def changeEvent(self, event):
         if self.isMinimized():
