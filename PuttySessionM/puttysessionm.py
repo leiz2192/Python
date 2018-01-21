@@ -35,7 +35,6 @@ class Sessions(object):
 
         with open(g_session_file_name, 'r') as session_fp:
             self.__all_sessions = json.load(session_fp)
-        print(self.__all_sessions)
 
     def get_session_names(self):
         return [session_name for session_name in self.__all_sessions]
@@ -65,7 +64,6 @@ class Sessions(object):
         if session_name not in self.__all_sessions:
             return
         self.__all_sessions.pop(session_name)
-        print(self.__all_sessions)
         with open(g_session_file_name, 'w') as session_fp:
             json.dump(
                 self.__all_sessions, session_fp, indent=4, ensure_ascii=False
@@ -130,6 +128,10 @@ class PuttySessionM(QtWidgets.QWidget):
         self.session_list.itemClicked.connect(self.session_show)
         self.session_list.itemDoubleClicked.connect(self.session_show_and_open)
         self.session_remove.triggered.connect(self.session_del)
+        self.session_add.triggered.connect(self.session_save)
+        self.save_edit.returnPressed.connect(self.session_save)
+        self.session_search.triggered.connect(self.session_search_slot)
+        self.session_search_edit.returnPressed.connect(self.session_search_slot)
 
     def init_layout(self):
         self.session_grid = QGridLayout()
@@ -195,14 +197,55 @@ class PuttySessionM(QtWidgets.QWidget):
         self.session_list.addItems(self.session_names)
 
     def tray_session_open(self, session_name):
-        print("tray session click ", session_name)
         session_attr = self.sessions.get_session_attr(session_name)
-        print("tray_session_open,", session_attr)
         host = session_attr.get("host", "")
         port = session_attr.get("port", "")
         user = session_attr.get("username", "")
         pawd = session_attr.get("passwd", "")
         self.shell_open_putty(host, port, user, pawd)
+
+    def session_search_slot(self):
+        self.session_list.clear()
+
+        self.session_names = self.sessions.get_session_names()
+        search_text = self.session_search_edit.text()
+        if not search_text:
+            self.session_list.addItems(self.session_names)
+            return
+
+        match_sesion_names = []
+        for session_name in self.session_names:
+            if search_text in session_name:
+                match_sesion_names.append(session_name)
+        self.session_list.addItems(match_sesion_names)
+
+    def session_save(self):
+        if not self.check_input():
+            return
+
+        host = self.ip_edit.text()
+        port = self.port_edit.text()
+        user = self.user_edit.text()
+        pawd = self.pwd_edit.text()
+        session_name = self.save_edit.text()
+        if not session_name:
+            session_name = "{0}@{1}".format(user, host)
+        session_attr = {
+            "host": host,
+            "port": port,
+            "username": user,
+            "passwd": pawd
+        }
+        if self.sessions.is_new_session_name(session_name):
+            self.session_list.addItem(session_name)
+
+            session_name_action = QAction(session_name, self)
+            session_name_action.triggered.connect(
+                functools.partial(self.tray_session_open, session_name)
+            )
+            self.tray_sessions.addAction(session_name_action)
+        self.sessions.save_session(session_name, session_attr)
+
 
     def session_del(self):
         current_item = self.session_list.currentItem()
@@ -259,51 +302,38 @@ class PuttySessionM(QtWidgets.QWidget):
     def putty_save_and_open(self):
         if not self.putty_open():
             return
-        host = self.ip_edit.text()
-        port = self.port_edit.text()
-        user = self.user_edit.text()
-        pawd = self.pwd_edit.text()
-        session_name = self.save_edit.text()
-        if not session_name:
-            session_name = "{0}@{1}".format(user, host)
-        session_attr = {
-            "host": host,
-            "port": port,
-            "username": user,
-            "passwd": pawd
-        }
-        if self.sessions.is_new_session_name(session_name):
-            self.session_list.addItem(session_name)
-
-            session_name_action = QAction(session_name, self)
-            session_name_action.triggered.connect(
-                functools.partial(self.tray_session_open, session_name)
-            )
-            self.tray_sessions.addAction(session_name_action)
-        self.sessions.save_session(session_name, session_attr)
+        self.session_save()
 
     def putty_open(self):
+        if not self.check_input():
+            return False
+
         host_ip = self.ip_edit.text()
-        if not host_ip:
-            QMessageBox.information(
-                self, "Information", "Please input right Host IP"
-            )
-            return False
         host_port = self.port_edit.text()
-        if not host_port:
-            QMessageBox.information(
-                self, "Information", "Please input right Port"
-            )
-            return False
         user_name = self.user_edit.text()
         passwd = self.pwd_edit.text()
 
         self.shell_open_putty(host_ip, host_port, user_name, passwd)
         return True
 
+    def check_input(self):
+        if not self.ip_edit.text():
+            QMessageBox.information(
+                self, "Information", "Please input right Host IP"
+            )
+            return False
+        if not self.port_edit.text():
+            QMessageBox.information(
+                self, "Information", "Please input right Port"
+            )
+            return False
+        return True
+
     def shell_open_putty(self, host_ip, host_port, user_name, passwd):
         if not host_ip or not host_port:
-            print("host_ip or host_port empty")
+            QMessageBox.information(
+                self, "Information", "Please input Host IP and Port"
+            )
             return
 
         open_cmd = "putty -ssh -P {port}".format(port=host_port)
