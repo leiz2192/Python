@@ -81,6 +81,8 @@ class PuttySessionM(QtWidgets.QWidget):
         self.setWindowFlags(
             Qt.WindowMinimizeButtonHint|Qt.WindowCloseButtonHint
         )
+        self.sizeHint()
+        self.setFixedSize(580, 160)
 
         self.close_confirm = False
 
@@ -89,15 +91,16 @@ class PuttySessionM(QtWidgets.QWidget):
         self.tray.setIcon(QIcon(g_icon_name["software"]))
         self.tray.activated.connect(self.tray_click)
 
-        self.tray_restore_action = QAction(
+        self.tray_restore = QAction(
             "Restore", self, triggered=self.showNormal
         )
-        self.tray_quit_action = QAction(
+        self.tray_quit = QAction(
             "Quit", self, triggered=self.close
         )
         self.tray_menu = QMenu(QApplication.desktop())
-        self.tray_menu.addAction(self.tray_restore_action)
-        self.tray_menu.addAction(self.tray_quit_action)
+        self.tray_menu.addAction(self.tray_restore)
+        self.tray_menu.addAction(self.tray_quit)
+
         self.tray.setContextMenu(self.tray_menu)
         self.tray.show()
 
@@ -108,38 +111,27 @@ class PuttySessionM(QtWidgets.QWidget):
         self.session_list.itemDoubleClicked.connect(self.session_show_and_open)
 
     def init_layout(self):
-        self.session_attr_grid = QGridLayout()
-        self.session_attr_grid.setSpacing(10)
-        self.session_attr_grid.addWidget(self.ip_label, 1, 0)
-        self.session_attr_grid.addWidget(self.ip_edit, 1, 1)
-        self.session_attr_grid.addWidget(self.port_label, 1, 2)
-        self.session_attr_grid.addWidget(self.port_edit, 1, 3)
-        self.session_attr_grid.addWidget(self.user_label, 2, 0)
-        self.session_attr_grid.addWidget(self.user_edit, 2, 1)
-        self.session_attr_grid.addWidget(self.pwd_label, 3, 0)
-        self.session_attr_grid.addWidget(self.pwd_edit, 3, 1)
-        self.session_attr_grid.addWidget(self.save_label, 4, 0)
-        self.session_attr_grid.addWidget(self.save_edit, 4, 1)
+        self.session_grid = QGridLayout()
+        self.session_grid.addWidget(self.ip_label, 0, 4, 1, 1)
+        self.session_grid.addWidget(self.ip_edit, 0, 5, 1, 2)
+        self.session_grid.addWidget(self.port_label, 0, 7, 1, 1)
+        self.session_grid.addWidget(self.port_edit, 0, 8, 1, 1)
+        self.session_grid.addWidget(self.user_label, 1, 4, 1, 1)
+        self.session_grid.addWidget(self.user_edit, 1, 5, 1, 2)
+        self.session_grid.addWidget(self.pwd_label, 2, 4, 1, 1)
+        self.session_grid.addWidget(self.pwd_edit, 2, 5, 1, 2)
+        self.session_grid.addWidget(self.save_label, 3, 4, 1, 1)
+        self.session_grid.addWidget(self.save_edit, 3, 5, 1, 2)
 
-        self.button_grid = QHBoxLayout()
-        self.button_grid.addWidget(self.open_btn)
-        self.button_grid.addWidget(self.save_open_btn)
+        self.session_grid.addWidget(self.session_list, 0, 0, 4, 4)
+        self.session_grid.addWidget(self.session_toolbar, 4, 0, 1, 4)
+        self.session_grid.addWidget(self.open_btn, 4, 5, 1, 1)
+        self.session_grid.addWidget(self.save_open_btn, 4, 6, 1, 1)
 
-        self.session_list_grid = QVBoxLayout()
-        self.session_list_grid.addWidget(self.session_list)
-        self.session_list_grid.addWidget(self.session_toolbar)
-
-        self.session_grid = QHBoxLayout()
-        self.session_grid.addLayout(self.session_list_grid)
-        self.session_grid.addLayout(self.session_attr_grid)
-
-        self.gerneral_grid = QVBoxLayout()
-        self.gerneral_grid.addLayout(self.session_grid)
-        self.gerneral_grid.addLayout(self.button_grid)
-        self.setLayout(self.gerneral_grid)
+        self.setLayout(self.session_grid)
 
     def init_element(self):
-        self.ip_label = QLabel("Host IP")
+        self.ip_label = QLabel("Host  IP")
         self.ip_edit = QLineEdit()
 
         self.port_label = QLabel("Port")
@@ -153,11 +145,13 @@ class PuttySessionM(QtWidgets.QWidget):
         self.pwd_label = QLabel("Password")
         self.pwd_edit = QLineEdit()
 
-        self.save_label = QLabel("Save as")
+        self.save_label = QLabel("Saves as")
         self.save_edit = QLineEdit()
 
         self.save_open_btn = QPushButton("Save and Open")
+        self.save_open_btn.minimumSizeHint()
         self.open_btn = QPushButton("Open")
+        self.open_btn.minimumSizeHint()
 
         self.session_add = QAction(
             QIcon(g_icon_name["session_add"]), "Add", self
