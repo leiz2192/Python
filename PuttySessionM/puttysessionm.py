@@ -4,6 +4,7 @@
 import json
 import os
 import sys
+import re
 import functools
 
 from subprocess import Popen
@@ -317,17 +318,37 @@ class PuttySessionM(QtWidgets.QWidget):
         return True
 
     def check_input(self):
-        if not self.ip_edit.text():
+        ip_text = self.ip_edit.text()
+        if not ip_text or not self.check_ip_validity(ip_text):
             QMessageBox.information(
                 self, "Information", "Please input right Host IP"
             )
             return False
-        if not self.port_edit.text():
+
+        port_text = self.port_edit.text()
+        if not port_text or not self.check_port_validity(port_text):
             QMessageBox.information(
                 self, "Information", "Please input right Port"
             )
             return False
         return True
+
+    def check_ip_validity(self, ip_text):
+        compile_ip = re.compile(
+            '^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$'
+        )
+        return compile_ip.match(ip_text)
+
+    def check_port_validity(self, port_text):
+        compile_port = re.compile('^([1-9]\d+|[1-9])$')
+        return compile_port.match(port_text)
+
+    def has_special_chars(self, str_text):
+        special_chars = ";&\"\'"
+        for one_special_char in special_chars:
+            if one_special_char in str_text:
+                return True
+        return False
 
     def shell_open_putty(self, host_ip, host_port, user_name, passwd):
         if not host_ip or not host_port:
@@ -337,10 +358,10 @@ class PuttySessionM(QtWidgets.QWidget):
             return
 
         open_cmd = "putty -ssh -P {port}".format(port=host_port)
-        if user_name:
-            open_cmd = "{cmd} -l {user}".format(cmd=open_cmd, user=user_name)
-        if passwd:
-            open_cmd = "{cmd} -pw {pwd}".format(cmd=open_cmd, pwd=passwd)
+        if user_name and not self.has_special_chars(user_name):
+            open_cmd = "{cmd} -l \"{user}\"".format(cmd=open_cmd, user=user_name)
+        if passwd and not self.has_special_chars(passwd):
+            open_cmd = "{cmd} -pw \"{pwd}\"".format(cmd=open_cmd, pwd=passwd)
         open_cmd = "{cmd} {ip}".format(cmd=open_cmd, ip=host_ip)
         print("Open putty:", open_cmd)
         Popen(open_cmd)
