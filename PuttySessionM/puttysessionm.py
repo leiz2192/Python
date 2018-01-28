@@ -7,6 +7,9 @@ import sys
 import re
 import functools
 
+from Crypto.Cipher import AES
+from binascii import b2a_hex, a2b_hex
+
 from subprocess import Popen
 
 from PyQt5 import QtWidgets
@@ -28,14 +31,65 @@ g_icon_name = {
 g_session_file_name="all_sessions.json"
 
 
+def check_ip_validity(ip_text):
+    compile_ip = re.compile(
+        '^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$'
+    )
+    return compile_ip.match(ip_text)
+
+
+def check_port_validity(port_text):
+    compile_port = re.compile('^([1-9]\d+|[1-9])$')
+    return compile_port.match(port_text)
+
+
+def has_special_chars(str_text):
+    special_chars = ";&\"\'"
+    for one_special_char in special_chars:
+        if one_special_char in str_text:
+            return True
+    return False
+
+
+class XCrypto(object):
+    def __init__(self, key, iv, mode=AES.MODE_CBC):
+        self.__key = key
+        self.__iv = iv
+        self.__mode = mode
+
+    def encrypt(self, plain_text):
+        cryptor = AES.new(self.__key, self.__mode, self.__iv)
+        # 密钥key长度必须为16（AES-128）、24（AES-192）、或32（AES-256）Bytes 长度
+        # 目前AES-128足够用
+        length = 16
+        plain_text += ('\0' * (length - (len(plain_text) % length)))
+        cipher_text = cryptor.encrypt(plain_text)
+        return b2a_hex(cipher_text).decode(encoding="utf-8")
+
+    def decrypt(self, cipher_text):
+        cryptor = AES.new(self.__key, self.__mode, self.__iv)
+        plain_text = cryptor.decrypt(
+            a2b_hex(cipher_text.encode(encoding="utf-8"))
+        )
+        plain_text = plain_text.decode(encoding="utf-8").rstrip('\0')
+        return plain_text
+
+
 class Sessions(object):
     def __init__(self):
         self.__all_sessions = {}
         if not os.path.exists(g_session_file_name):
             return
 
+        self.cryptor = XCrypto('This is a key123', 'This is an IV456')
         with open(g_session_file_name, 'r') as session_fp:
             self.__all_sessions = json.load(session_fp)
+
+        for _, session_attr in self.__all_sessions.items():
+            passwd = session_attr.get("passwd", "")
+            if not passwd:
+                continue
+            session_attr["passwd"] = self.cryptor.decrypt(passwd)
 
     def get_session_names(self):
         return [session_name for session_name in self.__all_sessions]
@@ -54,17 +108,24 @@ class Sessions(object):
             self.__all_sessions[session_name] = session_attr
         else:
             for attr in self.__all_sessions[session_name]:
-                if attr in session_attr:
-                    self.__all_sessions[session_name][attr] = session_attr[attr]
-        with open(g_session_file_name, 'w') as session_fp:
-            json.dump(
-                self.__all_sessions, session_fp, indent=4, ensure_ascii=False
-            )
+                if attr not in session_attr:
+                    continue
+                self.__all_sessions[session_name][attr] = session_attr[attr]
+        self.session_to_file()
 
     def remove_session(self, session_name):
         if session_name not in self.__all_sessions:
             return
         self.__all_sessions.pop(session_name)
+        self.session_to_file()
+
+    def session_to_file(self):
+        for _, session_attr in self.__all_sessions.items():
+            passwd = session_attr.get("passwd", "")
+            if not passwd:
+                continue
+            session_attr["passwd"] = self.cryptor.encrypt(passwd)
+
         with open(g_session_file_name, 'w') as session_fp:
             json.dump(
                 self.__all_sessions, session_fp, indent=4, ensure_ascii=False
@@ -73,7 +134,7 @@ class Sessions(object):
 
 class PuttySessionM(QtWidgets.QWidget):
     def __init__(self):
-        super().__init__()
+        super(PuttySessionM, self).__init__()
 
         self.sessions = Sessions()
         self.init_ui()
@@ -168,6 +229,7 @@ class PuttySessionM(QtWidgets.QWidget):
 
         self.pwd_label = QLabel("Password")
         self.pwd_edit = QLineEdit()
+        self.pwd_edit.setEchoMode(QLineEdit.PasswordEchoOnEdit)
 
         self.save_label = QLabel("Saved as")
         self.save_edit = QLineEdit()
@@ -319,36 +381,19 @@ class PuttySessionM(QtWidgets.QWidget):
 
     def check_input(self):
         ip_text = self.ip_edit.text()
-        if not ip_text or not self.check_ip_validity(ip_text):
+        if not ip_text or not check_ip_validity(ip_text):
             QMessageBox.information(
                 self, "Information", "Please input right Host IP"
             )
             return False
 
         port_text = self.port_edit.text()
-        if not port_text or not self.check_port_validity(port_text):
+        if not port_text or not check_port_validity(port_text):
             QMessageBox.information(
                 self, "Information", "Please input right Port"
             )
             return False
         return True
-
-    def check_ip_validity(self, ip_text):
-        compile_ip = re.compile(
-            '^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$'
-        )
-        return compile_ip.match(ip_text)
-
-    def check_port_validity(self, port_text):
-        compile_port = re.compile('^([1-9]\d+|[1-9])$')
-        return compile_port.match(port_text)
-
-    def has_special_chars(self, str_text):
-        special_chars = ";&\"\'"
-        for one_special_char in special_chars:
-            if one_special_char in str_text:
-                return True
-        return False
 
     def shell_open_putty(self, host_ip, host_port, user_name, passwd):
         if not host_ip or not host_port:
@@ -358,12 +403,12 @@ class PuttySessionM(QtWidgets.QWidget):
             return
 
         open_cmd = "putty -ssh -P {port}".format(port=host_port)
-        if user_name and not self.has_special_chars(user_name):
+        if user_name and not has_special_chars(user_name):
             open_cmd = "{cmd} -l \"{user}\"".format(cmd=open_cmd, user=user_name)
-        if passwd and not self.has_special_chars(passwd):
+        if passwd and not has_special_chars(passwd):
             open_cmd = "{cmd} -pw \"{pwd}\"".format(cmd=open_cmd, pwd=passwd)
         open_cmd = "{cmd} {ip}".format(cmd=open_cmd, ip=host_ip)
-        print("Open putty:", open_cmd)
+        # print("Open putty:", open_cmd)
         Popen(open_cmd)
 
     def keyPressEvent(self, event):
