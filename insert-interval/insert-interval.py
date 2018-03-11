@@ -42,5 +42,6 @@ def main():
     for one_interval in new_interval_list:
         print("[", one_interval.start, ",", one_interval.end, "]")
 
+
 if __name__ == '__main__':
     main()
