@@ -6,6 +6,8 @@ import difflib
 import jsonpatch
 from json2html import *
 import webbrowser
+from jinja2 import Template
+from jinja2 import Environment, PackageLoader
 
 with open("a.json", "r") as fs_a:
     src_doc = json.load(fs_a)
@@ -19,15 +21,29 @@ with open("b.json", "r") as fs_b:
 patch_doc = jsonpatch.make_patch(src_doc, dst_doc)
 print("json patch: {}".format(patch_doc.patch))
 
+# json_patch = [
+#     {'op': 'replace', 'path': '/pear/fourth/0/second', 'value': 'another'},
+#     {'op': 'replace', 'path': '/pear/fourth/0/first', 'value': 'value'},
+#     {'op': 'remove', 'path': '/pear/fourth/1/second', 'value': ''},
+#     {'op': 'remove', 'path': '/pear/fourth/1/first', 'value': ''},
+# ]
+#
+# with open("patch.html", "w") as fp_patch:
+#     fp_patch.write(json2html.convert(json_patch))
+#     webbrowser.open("patch.html", new=1)
+
 json_patch = [
-    {'op': 'replace', 'path': '/pear/fourth/0/second', 'value': 'another'},
-    {'op': 'replace', 'path': '/pear/fourth/0/first', 'value': 'value'},
-    {'op': 'remove', 'path': '/pear/fourth/1/second', 'value': ''},
-    {'op': 'remove', 'path': '/pear/fourth/1/first', 'value': ''}
+    {'op': 'show', 'path': 'diff.html', 'value': ''}
 ]
+
+env = Environment(loader=PackageLoader("json-sort", "templates"))
+template = env.get_template("report.html")
+html_content = template.render(summary=json_patch)
+print("template content: {}".format(html_content))
 with open("patch.html", "w") as fp_patch:
-    fp_patch.write(json2html.convert(json_patch))
-    webbrowser.open("patch.html", new=1)
+    fp_patch.write(html_content)
+
+# webbrowser.open("patch.html", 0, False)
 
 
 diff = difflib.ndiff(src_lines, dst_lines)

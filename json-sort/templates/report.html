@@ -1,16 +1,54 @@
 <section>
-    <table border="1" cellspacing=0 cellpadding=2 bordercolor=#505050>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Json Diff</title>
+    </head>
+    <body>
+    <table border="1" cellspacing=0 cellpadding=2 bordercolor=#505050 align="center">
+        <caption>Json Diff Detail</caption>
         <tr>
             <th>op</th>
             <th>path</th>
             <th>value</th>
         </tr>
         {% for group in summary %}
-            <tr>
-                <td><center>{{ group[0] }}</center></td>
-                <td><center>{{ group[1] }}</center></td>
-                <td><center>{{ group[2] }}</center></td>
-            </tr>
+        <tr>
+            <td>
+                <center>{{ group.op }}</center>
+            </td>
+            <td>
+                <center><a href="{{ group.path }}">{{ group.path }}</a></center>
+            </td>
+            <td>
+                <center>{{ group.value }}</center>
+            </td>
+        </tr>
         {% endfor %}
-        </table>
+    </table>
+    <br/>
+    <table border="1" cellspacing=0 cellpadding=2 bordercolor=#505050 align="center">
+        <caption>Json Diff Detail</caption>
+        <tr>
+            <th>op</th>
+            <th>path</th>
+            <th>value</th>
+        </tr>
+        {% for group in summary %}
+        <tr>
+            <td>
+                <center>{{ group.op }}</center>
+            </td>
+            <td>
+                <center>{{ group.path }}</center>
+            </td>
+            <td>
+                <center>{{ group.value }}</center>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    </body>
+    </html>
 </section>
