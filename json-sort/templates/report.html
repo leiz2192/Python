@@ -1,0 +1,16 @@
+<section>
+    <table border="1" cellspacing=0 cellpadding=2 bordercolor=#505050>
+        <tr>
+            <th>op</th>
+            <th>path</th>
+            <th>value</th>
+        </tr>
+        {% for group in summary %}
+            <tr>
+                <td><center>{{ group[0] }}</center></td>
+                <td><center>{{ group[1] }}</center></td>
+                <td><center>{{ group[2] }}</center></td>
+            </tr>
+        {% endfor %}
+        </table>
+</section>

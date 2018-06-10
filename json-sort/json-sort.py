@@ -3,6 +3,9 @@
 
 import json
 import difflib
+import jsonpatch
+from json2html import *
+import webbrowser
 
 with open("a.json", "r") as fs_a:
     src_doc = json.load(fs_a)
@@ -11,6 +14,20 @@ with open("a.json", "r") as fs_a:
 with open("b.json", "r") as fs_b:
     dst_doc = json.load(fs_b)
     dst_lines = json.dumps(dst_doc, sort_keys=True, indent=4, separators=(',', ': ')).splitlines()
+
+
+patch_doc = jsonpatch.make_patch(src_doc, dst_doc)
+print("json patch: {}".format(patch_doc.patch))
+
+json_patch = [
+    {'op': 'replace', 'path': '/pear/fourth/0/second', 'value': 'another'},
+    {'op': 'replace', 'path': '/pear/fourth/0/first', 'value': 'value'},
+    {'op': 'remove', 'path': '/pear/fourth/1/second', 'value': ''},
+    {'op': 'remove', 'path': '/pear/fourth/1/first', 'value': ''}
+]
+with open("patch.html", "w") as fp_patch:
+    fp_patch.write(json2html.convert(json_patch))
+    webbrowser.open("patch.html", new=1)
 
 
 diff = difflib.ndiff(src_lines, dst_lines)
