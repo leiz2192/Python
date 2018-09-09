@@ -1,0 +1,46 @@
+<!--引入Flask-Bootstrap中的基模板-->
+{%extends 'bootstrap/base.html'%}
+
+<!--添加html属性-->
+{%block html_attribs%}lang="zh-cn"{%endblock%}
+
+<!--添加metas标签-->
+{%block metas%}
+    {{super()}}
+    <meta charset="UTF-8">
+{%endblock%}
+
+<!--网页标题-->
+{%block title%}Flask-Bootstrap{%endblock%}
+
+<!--网页正文-->
+{%block content%}
+<div class="container">
+    <div class="page-header">
+        {%if author%}
+        <h1>Hello,{{author.name}}</h1>
+        {%else%}
+        <h1>Nobody</h1>
+        {%endif%}
+    </div>
+    <div class="col-center-block">
+        <!--展示朋友列表-->
+        {%if author.friends%}
+        <table class="table table-bordered table-striped table-hover table-condensed">
+            <thead class="alert-danger">
+                <th>姓名</th>
+                <th>年龄</th>
+            </thead>
+            {%for f in author.friends%}
+            <tr class="alert-success">
+                <td><a href="/user/{{f.name}}">{{f.name}}</a></td>
+                <td>{{f.age}}</td>
+            </tr>
+            {%endfor%}
+        </table>
+        {%endif%}
+    </div>
+</div>
+<script>
+</script>
+{%endblock%}
