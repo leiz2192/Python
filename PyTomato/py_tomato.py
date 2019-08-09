@@ -47,7 +47,7 @@ def save_times(today, run_times, pause_times):
     today_times["Pause"] = pause_times
 
     with open(PYTOMATO_CONF_FILE, "w") as fp:
-        json.dump(content, fp)
+        json.dump(content, fp, indent=2)
 
 
 def main():
