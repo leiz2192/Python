@@ -48,24 +48,26 @@ class PyFtpServer(Process):
 
 
 def main():
-    def_btn_color = ('#ff0000', '#ffffff')
+    def_btn_color = ('#ff0000', '#D6DBDF')
     def_btn_size = (8, 1)
+    def_text_size = (6, 1)
 
+    sg.SetOptions(button_color=def_btn_color, border_width=0, text_justification="left", auto_size_text=False)
     layout = [
-        [sg.Text("Path:"),
-         sg.Input(key="__PATH__", default_text=os.getcwd()),
-         sg.FolderBrowse(button_color=def_btn_color, size=def_btn_size)],
-        [sg.Text("User:"),
-         sg.Input(key="__USER__", default_text="ftpuser"),
-         sg.Button(button_text="Start", key="START_BTN", button_color=def_btn_color, size=def_btn_size)],
-        [sg.Text("Pass:"),
-         sg.Input(key="__PASS__", default_text="Changeme_123"),
-         sg.Button(button_text="Stop", key="STOP_BTN", button_color=def_btn_color, size=def_btn_size, disabled=True)],
-        [sg.Text("Port:"),
-         sg.Input(key="__PORT__", default_text=2121),
-         sg.Button(button_text="Exit", key="EXIT_BTN", button_color=def_btn_color, size=def_btn_size)]
+        [sg.Text("PATH:", size=def_text_size),
+         sg.InputText(key="__PATH__", default_text=os.getcwd()),
+         sg.FolderBrowse(size=def_btn_size, key="__BROWSE__")],
+        [sg.Text("USER:", size=def_text_size),
+         sg.Input(key="__USER__", default_text="ftpuser")],
+        [sg.Text("PASS:", size=def_text_size),
+         sg.Input(key="__PASS__", default_text="Changeme_123")],
+        [sg.Text("PORT:", size=def_text_size),
+         sg.Input(key="__PORT__", default_text=2121)],
+        [sg.Button(button_text="Start", key="START_BTN",  size=def_btn_size),
+         sg.Button(button_text="Stop", key="STOP_BTN", size=def_btn_size, disabled=True),
+         sg.Button(button_text="Exit", key="EXIT_BTN", border_width=0, size=def_btn_size)]
     ]
-    window = sg.Window("PyFtpServer", layout)
+    window = sg.Window("PyFtpServer", layout, use_default_focus=False)
 
     ftp_servers = []
     while True:
@@ -90,11 +92,11 @@ def main():
 def terminate_server(ftp_servers):
     while ftp_servers:
         p = ftp_servers.pop()
+        print("{} {} {} terminate start".format(time.time(), p.pid, p.name))
         p.terminate()
-        print("{} {} {} terminated".format(time.time(), p.pid, p.name))
         while p.is_alive():
             time.sleep(1)
-        print("{} {} {} not alive".format(time.time(), p.pid, p.name))
+        print("{} {} {} terminate end".format(time.time(), p.pid, p.name))
 
 
 if __name__ == '__main__':
