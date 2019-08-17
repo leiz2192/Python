@@ -3,25 +3,27 @@
 import os
 import time
 
+import logging
+
 import PySimpleGUI as sg
-from multiprocessing import Process
+from threading import Thread
 
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 
 
-class PyFtpServer(Process):
+class PyFtpServer(Thread):
     def __init__(self, path, user, pwd, port):
-        super(PyFtpServer, self).__init__()
+        super(PyFtpServer, self).__init__(name="PyFtpServer")
         self._path = path
         self._user = user
         self._pwd = pwd
         self._port = port
 
-    def run(self):
-        print(self._path, self._user, self._pwd, self._port)
+        self._server = None
 
+    def run(self):
         # Instantiate a dummy authorizer for managing 'virtual' users
         authorizer = DummyAuthorizer()
 
@@ -37,17 +39,23 @@ class PyFtpServer(Process):
 
         # Instantiate FTP server class and listen on 0.0.0.0:2121
         address = ('0.0.0.0', int(self._port))
-        server = FTPServer(address, handler)
+        self._server = FTPServer(address, handler)
 
         # set a limit for connections
-        server.max_cons = 256
-        server.max_cons_per_ip = 5
+        self._server.max_cons = 256
+        self._server.max_cons_per_ip = 5
 
         # start ftp server
-        server.serve_forever()
+        self._server.serve_forever()
+
+    def terminate(self):
+        self._server.close_all()
 
 
 def main():
+    logging.basicConfig(filename=os.path.join(os.getcwd(), "pyftpd.log"),
+                        level=logging.INFO)
+
     def_btn_color = ('#ff0000', '#D6DBDF')
     def_btn_size = (8, 1)
     def_text_size = (6, 1)
@@ -92,11 +100,11 @@ def main():
 def terminate_server(ftp_servers):
     while ftp_servers:
         p = ftp_servers.pop()
-        print("{} {} {} terminate start".format(time.time(), p.pid, p.name))
+        logging.info("{} {} {} terminate start".format(time.time(), p.ident, p.name))
         p.terminate()
         while p.is_alive():
             time.sleep(1)
-        print("{} {} {} terminate end".format(time.time(), p.pid, p.name))
+        logging.info("{} {} {} terminate end".format(time.time(), p.ident, p.name))
 
 
 if __name__ == '__main__':
