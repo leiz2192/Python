@@ -6,7 +6,7 @@ import time
 import logging
 
 import PySimpleGUI as sg
-from threading import Thread
+from threading import Thread, Lock
 
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
@@ -23,38 +23,50 @@ class PyFtpServer(Thread):
 
         self._server = None
 
+        self._lock = Lock()
+
     def run(self):
-        # Instantiate a dummy authorizer for managing 'virtual' users
-        authorizer = DummyAuthorizer()
+        with self._lock:
+            # Instantiate a dummy authorizer for managing 'virtual' users
+            authorizer = DummyAuthorizer()
 
-        # Define a new user having full r/w permissions and a read-only anonymous user
-        authorizer.add_user(self._user, self._pwd, self._path, perm='elradfmwMT')
+            # Define a new user having full r/w permissions and a read-only anonymous user
+            authorizer.add_user(self._user, self._pwd, self._path, perm='elradfmwMT')
 
-        # Instantiate FTP handler class
-        handler = FTPHandler
-        handler.authorizer = authorizer
+            # Instantiate FTP handler class
+            handler = FTPHandler
+            handler.authorizer = authorizer
 
-        # Define a customized banner (string returned when client connects)
-        handler.banner = "pyftpdlib based ftpd ready."
+            # Define a customized banner (string returned when client connects)
+            handler.banner = "pyftpdlib based ftpd ready."
 
-        # Instantiate FTP server class and listen on 0.0.0.0:2121
-        address = ('0.0.0.0', int(self._port))
-        self._server = FTPServer(address, handler)
+            # Instantiate FTP server class and listen on 0.0.0.0:self._port
+            address = ('0.0.0.0', int(self._port))
+            try:
+                self._server = FTPServer(address, handler)
+            except Exception as e:
+                logging.error(f"Exception while start PyFtpServer: {e}")
 
-        # set a limit for connections
-        self._server.max_cons = 256
-        self._server.max_cons_per_ip = 5
+        if self._server is not None:
+            # set a limit for connections
+            self._server.max_cons = 256
+            self._server.max_cons_per_ip = 5
 
-        # start ftp server
-        self._server.serve_forever()
+            # start ftp server
+            self._server.serve_forever()
 
     def terminate(self):
         self._server.close_all()
 
+    def success(self):
+        with self._lock:
+            return self._server is not None
+
 
 def main():
     logging.basicConfig(filename=os.path.join(os.getcwd(), "pyftpd.log"),
-                        level=logging.INFO)
+                        level=logging.INFO,
+                        format="%(levelname)s:%(asctime)s[%(process)d|%(thread)d]:%(name)s %(message)s")
 
     def_btn_color = ('#ff0000', '#D6DBDF')
     def_btn_size = (8, 1)
@@ -71,10 +83,9 @@ def main():
          sg.Input(key="__PASS__", default_text="Changeme_123")],
         [sg.Text("PORT:", size=def_text_size),
          sg.Input(key="__PORT__", default_text=2121)],
-        [sg.Button(button_text="Start", key="START_BTN",  size=def_btn_size),
+        [sg.Button(button_text="Start", key="START_BTN", size=def_btn_size),
          sg.Button(button_text="Stop", key="STOP_BTN", size=def_btn_size, disabled=True),
-         sg.Button(button_text="Exit", key="EXIT_BTN", border_width=0, size=def_btn_size)]
-    ]
+         sg.Button(button_text="Exit", key="EXIT_BTN", border_width=0, size=def_btn_size)]]
     window = sg.Window("PyFtpServer", layout, use_default_focus=False)
 
     ftp_servers = []
@@ -82,8 +93,11 @@ def main():
         event, values = window.Read()
         if event == "START_BTN":
             p = PyFtpServer(values["__PATH__"], values["__USER__"], values["__PASS__"], values["__PORT__"])
-            ftp_servers.append(p)
             p.start()
+            if not p.success():
+                sg.PopupOK("Cannot start ftp server. Maybe the port has been occupied.", title="ERROR")
+                continue
+            ftp_servers.append(p)
             window.FindElement("START_BTN").Update(disabled=True)
             window.FindElement("STOP_BTN").Update(disabled=False)
         elif event == "STOP_BTN":
@@ -104,6 +118,7 @@ def terminate_server(ftp_servers):
         p.terminate()
         while p.is_alive():
             time.sleep(1)
+            p.terminate()
         logging.info("{} {} {} terminate end".format(time.time(), p.ident, p.name))
 
 
