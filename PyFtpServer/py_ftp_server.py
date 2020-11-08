@@ -1,21 +1,25 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 import os
+import socket
 import time
 
 import logging
 
 import PySimpleGUI as sg
+import threading
 from threading import Thread, Lock
 
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
-from pyftpdlib.servers import FTPServer
+from pyftpdlib.servers import ThreadedFTPServer
 
 
 class PyFtpServer(Thread):
     def __init__(self, path, user, pwd, port):
         super(PyFtpServer, self).__init__(name="PyFtpServer")
+        self._stop_event = threading.Event()
+
         self._path = path
         self._user = user
         self._pwd = pwd
@@ -43,7 +47,7 @@ class PyFtpServer(Thread):
             # Instantiate FTP server class and listen on 0.0.0.0:self._port
             address = ('0.0.0.0', int(self._port))
             try:
-                self._server = FTPServer(address, handler)
+                self._server = ThreadedFTPServer(address, handler)
             except Exception as e:
                 logging.error(f"Exception while start PyFtpServer: {e}")
 
@@ -63,6 +67,18 @@ class PyFtpServer(Thread):
             return self._server is not None
 
 
+def local_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('8.8.8.8', 80))
+            ip, _ = s.getsockname()
+    except Exception as e:
+        logging.error("local_ip exception: {}".format(e))
+        ip = socket.gethostbyname(socket.gethostname())
+
+    return ip
+
+
 def main():
     logging.basicConfig(filename=os.path.join(os.getcwd(), "pyftpd.log"),
                         level=logging.INFO,
@@ -72,32 +88,37 @@ def main():
     def_btn_size = (8, 1)
     def_text_size = (6, 1)
 
+    ip = local_ip()
+
     sg.SetOptions(button_color=def_btn_color, border_width=0, text_justification="left", auto_size_text=False)
     layout = [
         [sg.Text("PATH:", size=def_text_size),
-         sg.InputText(key="__PATH__", default_text=os.getcwd()),
-         sg.FolderBrowse(size=def_btn_size, key="__BROWSE__")],
+         sg.InputText(key="PATH", default_text=os.getcwd()),
+         sg.FolderBrowse(size=def_btn_size, key="BROWSE")],
         [sg.Text("USER:", size=def_text_size),
-         sg.Input(key="__USER__", default_text="ftpuser")],
+         sg.Input(key="USER", default_text="ftpuser")],
         [sg.Text("PASS:", size=def_text_size),
-         sg.Input(key="__PASS__", default_text="Changeme_123")],
+         sg.Input(key="PASS", default_text="Changeme_123")],
         [sg.Text("PORT:", size=def_text_size),
-         sg.Input(key="__PORT__", default_text=2121)],
-        [sg.Button(button_text="Start", key="START_BTN", size=def_btn_size),
+         sg.Input(key="PORT", default_text=2121)],
+        [sg.Button(button_text="Start", key="START_BTN",  size=def_btn_size),
          sg.Button(button_text="Stop", key="STOP_BTN", size=def_btn_size, disabled=True),
-         sg.Button(button_text="Exit", key="EXIT_BTN", border_width=0, size=def_btn_size)]]
+         sg.Button(button_text="Exit", key="EXIT_BTN", border_width=0, size=def_btn_size)],
+        [sg.InputText(ftp_info(ip, "2121", "ftpuser", "Changeme_123"), key="ADDR", disabled=True)]]
     window = sg.Window("PyFtpServer", layout, use_default_focus=False)
 
     ftp_servers = []
     while True:
         event, values = window.Read()
         if event == "START_BTN":
-            p = PyFtpServer(values["__PATH__"], values["__USER__"], values["__PASS__"], values["__PORT__"])
+            p = PyFtpServer(values["PATH"], values["USER"], values["PASS"], values["PORT"])
             p.start()
             if not p.success():
                 sg.PopupOK("Cannot start ftp server. Maybe the port has been occupied.", title="ERROR")
                 continue
             ftp_servers.append(p)
+
+            window.FindElement("ADDR").Update(value=ftp_info(ip, values["PORT"], values["USER"], values["PASS"]))
             window.FindElement("START_BTN").Update(disabled=True)
             window.FindElement("STOP_BTN").Update(disabled=False)
         elif event == "STOP_BTN":
@@ -109,6 +130,10 @@ def main():
             break
 
     window.Close()
+
+
+def ftp_info(ip, port, user, pwd):
+    return "ftp://{}:{} {}/{}".format(ip, port, user, pwd)
 
 
 def terminate_server(ftp_servers):
